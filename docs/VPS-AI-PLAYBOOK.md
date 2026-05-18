@@ -4,7 +4,8 @@
 > O código está em: `git@github.com:WendeelMarinho/api-crawler.git`  
 > O usuário só faz `git clone` na VPS — **você** deixa tudo pronto para rodar e implementa as melhorias abaixo.
 
-Leia também: [00-START-HERE.md](./00-START-HERE.md) · [PLATFORM.md](./PLATFORM.md) · [KNOWN-ISSUES.md](./KNOWN-ISSUES.md)
+Leia também: [00-START-HERE.md](./00-START-HERE.md) · [PLATFORM.md](./PLATFORM.md) · [KNOWN-ISSUES.md](./KNOWN-ISSUES.md)  
+**Prompt para colar na IA:** [VPS-AI-PROMPT.md](./VPS-AI-PROMPT.md)
 
 ---
 

@@ -40,4 +40,4 @@ npm run doctor         # diagnóstico WSL/CDP
 
 ## Próximo trabalho (aprovado pelo usuário, não implementado ainda)
 
-Ver [ROADMAP.md](./ROADMAP.md). **Na VPS:** seguir [VPS-AI-PLAYBOOK.md](./VPS-AI-PLAYBOOK.md) (setup + melhorias).
+Ver [ROADMAP.md](./ROADMAP.md). **Na VPS:** [VPS-AI-PLAYBOOK.md](./VPS-AI-PLAYBOOK.md) (setup) · [VPS-AI-PROMPT.md](./VPS-AI-PROMPT.md) (prompt para colar na IA).
