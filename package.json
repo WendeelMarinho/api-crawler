@@ -1,0 +1,61 @@
+{
+  "name": "api-crawler",
+  "version": "1.0.0",
+  "description": "Semantic knowledge base extractor for Dock Tech authenticated documentation",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "login": "tsx src/index.ts login",
+    "login:wsl": "bash scripts/wsl-login.sh",
+    "chrome:debug": "bash scripts/wsl-chrome-debug.sh",
+    "doctor": "tsx src/index.ts doctor",
+    "crawl": "bash scripts/run-with-memory.sh crawl crawl",
+    "export": "bash scripts/run-with-memory.sh export export",
+    "reorganize": "bash scripts/run-with-memory.sh default reorganize",
+    "rebuild": "bash scripts/run-with-memory.sh rebuild rebuild",
+    "audit": "bash scripts/run-with-memory.sh default audit",
+    "test-email": "tsx src/index.ts test-email",
+    "menu": "bash scripts/dock-docs.sh",
+    "clean": "tsx src/index.ts clean",
+    "start": "tsx src/index.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "dock",
+    "documentation",
+    "extractor",
+    "rag",
+    "playwright",
+    "knowledge-base"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "cli-progress": "^3.12.0",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "fs-extra": "^11.3.0",
+    "nodemailer": "^8.0.7",
+    "ora": "^8.2.0",
+    "p-limit": "^6.2.0",
+    "playwright": "^1.51.0",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2",
+    "winston": "^3.17.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.13.10",
+    "@types/nodemailer": "^8.0.0",
+    "@types/turndown": "^5.0.5",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

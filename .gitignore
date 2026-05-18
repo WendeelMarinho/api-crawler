@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Reports & runtime data
+storage/reports/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Auth & session (NEVER commit)
+storage/auth/
+*.session.json
+
+# Extracted data (never commit — local/VPS only)
+storage/*
+!storage/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# Docker volumes
+.docker/
+
+# Temp
+tmp/
+*.tmp
+.cache/

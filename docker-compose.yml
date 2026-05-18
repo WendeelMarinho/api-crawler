@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dock-docs-app
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - CRAWL_HEADLESS=true
+    stdin_open: true
+    tty: true
+    shm_size: "4gb"
+    command: ["bash", "scripts/dock-docs.sh"]
+    deploy:
+      resources:
+        limits:
+          memory: 20G
+
+  crawl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dock-docs-crawl
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - CRAWL_HEADLESS=true
+      - NODE_MAX_OLD_SPACE_CRAWL=16384
+    command: ["node", "dist/index.js", "crawl"]
+    shm_size: "4gb"
+    deploy:
+      resources:
+        limits:
+          memory: 20G
+
+  rebuild:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dock-docs-rebuild
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    environment:
+      - NODE_MAX_OLD_SPACE_REBUILD=8192
+    command: ["node", "dist/index.js", "rebuild"]
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+
+  login:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dock-docs-login
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - CRAWL_HEADLESS=true
+    command: ["node", "dist/index.js", "login"]
+    shm_size: "2gb"
