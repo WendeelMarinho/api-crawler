@@ -47,14 +47,19 @@ docker compose run --rm crawl
 0 4 * * 0 cd /opt/dock-docs-extractor && docker compose run --rm rebuild >> logs/cron.log 2>&1
 ```
 
-## Login headless
+## Login headless (VPS — sem WSL/CDP)
 
-Na VPS use `DOCK_USERNAME` e `DOCK_PASSWORD` no `.env` — não precisa Chrome/CDP.
+O portal Dock usa **ReadMe** (`dash.readme.com`). O formulário padrão envia *magic link* por e-mail; o crawler clica em **"Log in with Password"** e usa `DOCK_USERNAME` + `DOCK_PASSWORD` do `.env`.
+
+```bash
+docker compose run --rm login
+# sessão salva em storage/auth/session.json
+```
 
 ## Testar SMTP
 
 ```bash
-npm run test-email
-# ou
-docker compose run --rm app  # opção 7 no menu
+docker compose run --rm test-email
+# ou: npm run test-email
+# ou: docker compose run --rm app  # opção 7 no menu
 ```

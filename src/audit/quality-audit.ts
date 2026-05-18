@@ -116,6 +116,38 @@ export async function runQualityAudit(maxSamples = 30): Promise<AuditReport> {
   return report;
 }
 
+export interface AuditThresholdOptions {
+  /** Max fraction of partial+failed documents (0–1). Default 0.5 */
+  maxPartialRatio?: number;
+  /** Max fraction of failed documents (0–1). Default 0.2 */
+  maxFailedRatio?: number;
+}
+
+export function checkAuditThresholds(
+  report: AuditReport,
+  options: AuditThresholdOptions = {},
+): { ok: boolean; reasons: string[] } {
+  const maxPartialRatio = options.maxPartialRatio ?? 0.5;
+  const maxFailedRatio = options.maxFailedRatio ?? 0.2;
+  const total = report.validDocuments || 1;
+  const partialRatio = (report.byQuality.partial + report.byQuality.failed) / total;
+  const failedRatio = report.byQuality.failed / total;
+  const reasons: string[] = [];
+
+  if (partialRatio > maxPartialRatio) {
+    reasons.push(
+      `partial+failed ${(partialRatio * 100).toFixed(1)}% > ${(maxPartialRatio * 100).toFixed(0)}%`,
+    );
+  }
+  if (failedRatio > maxFailedRatio) {
+    reasons.push(
+      `failed ${(failedRatio * 100).toFixed(1)}% > ${(maxFailedRatio * 100).toFixed(0)}%`,
+    );
+  }
+
+  return { ok: reasons.length === 0, reasons };
+}
+
 export function formatAuditSummary(report: AuditReport): string {
   const lines = [
     `Documentos válidos: ${report.validDocuments}/${report.totalFiles}`,

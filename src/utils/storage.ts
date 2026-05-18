@@ -12,6 +12,7 @@ const ALL_STORAGE_DIRS = [
   STORAGE_PATHS.graphql,
   STORAGE_PATHS.screenshots,
   STORAGE_PATHS.embeddings,
+  STORAGE_PATHS.extractionDebug,
 ] as const;
 
 export async function ensureStorageDirs(): Promise<void> {

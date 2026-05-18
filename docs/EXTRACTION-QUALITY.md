@@ -1,63 +1,52 @@
 # Qualidade da extração
 
-## Definição de “bem documentado” (alvo)
+## Alvo por documento `endpoint`
 
-Para cada endpoint, o JSON ideal deve ter:
+| Campo | Fonte na Dock ReadMe `/reference/` |
+|-------|-------------------------------------|
+| `endpoint.method` / `path` | Badge + URL do servidor (DOM) |
+| `endpoint.pathParams` | Placeholders `{nome}` no path (ordenado, dedupe, tipo leve inferido) |
+| `endpoint.bodyParams` / `headers` / `queryParams` | Seções por heading + `.rm-ParamContainer` (somente nós visíveis) |
+| `endpoint.responses` | Picker de respostas (opções visíveis) |
+| `endpoint.examples` | Try It — uma entrada por aba de linguagem |
+| `codeBlocks` / `examples` | Try It + schemas JSON (`exampleType`: `try-it` \| `schema` \| `snippet`) |
 
-| Campo | Alvo |
-|-------|------|
-| `title` | Nome humano do endpoint (sidebar ou H1 da operação) |
-| `endpoint.method` / `path` | Corretos |
-| `endpoint.summary` / `description` | Texto da doc, não placeholder |
-| `endpoint.pathParams` / `queryParams` / `bodyParams` | Lista completa com tipos e required |
-| `endpoint.responses` | Pelo menos 200 + erros relevantes |
-| `examples` / `codeBlocks` | curl ou snippet executável |
-| `breadcrumbs` | Cadeia igual à sidebar |
-| `markdown` | Corpo legível para RAG |
+## Sinais no JSON
 
-## Score atual (estimativa)
+- **`extractionSignals`** — `domExtraction`, `domSourceOfTruth`, contagens, `domViolations` (asserts), **`qualityScore`** (`score` 0–100, `grade`, `breakdown`).
+- **`extractionQuality`** — legado: `complete` \| `partial` \| `failed` (heurísticas de título/placeholder/missing body).
 
-| Critério | ~% |
-|----------|---:|
-| URL + method + path corretos | 85 |
-| Pasta / breadcrumbs | 80 |
-| Título correto | 30 |
-| Params completos | 25 |
-| Exemplos curl úteis | 40 |
-| Sem placeholders loading | 50 |
+## Asserts automáticos (`domAssertionViolations`)
 
-## Melhorias planejadas (código)
+Exemplos de violações quando a UI sugere conteúdo mas a extração veio vazia:
 
-### Fase A — sem re-crawl (HTML existente)
+- Corpo esperado em POST/PUT/PATCH com seção “Body” visível.
+- Abas Try It presentes sem snippets capturados.
+- Picker de responses visível sem códigos HTTP.
 
-1. **Title resolver** — ordem: OpenAPI interceptado → heading operação → `navigation-flat.title` → slug URL.
-2. **Sanitize placeholders** — marcar `extractionIncomplete: true` se detectar `Retrieving recent requests` / `Loading`.
-3. **Comando `npm run audit`** — relatório HTML/JSON com contagens por domínio.
-4. **Enriquecer via navigation-flat** — `title`, `pathTitles` quando DOM falhou.
+Use isso para **re-crawl** ou revisão manual da página.
 
-### Fase B — próximo crawl (quando autorizado)
+## Rebuild vs crawl
 
-1. **ReadMe wait strategy** — `waitForFunction` até params renderizarem; timeout 15–30s em endpoints.
-2. **Scroll + expand** — acordeões da sidebar e seções da página.
-3. **Retry por página** — se QA detectar incompleto, re-fila só essa URL.
-4. **Intercept OpenAPI** — merge spec na página se disponível.
+| Comando | Playwright | Endpoint rico (params + Try It) |
+|---------|------------|-----------------------------------|
+| `crawl` | Sim | Sim (reference) |
+| `rebuild` | Não | Não — só Cheerio no HTML em cache |
 
-### Fase C — operação
+Para alinhar JSON antigo ao pipeline atual: **crawl de novo** (ou script dedicado futuro).
 
-1. SMTP progress (ver spec SMTP).
-2. Memória 8–16 GB configurável.
-3. VPS cron + healthcheck.
-
-## QA automático (proposto)
+## QA
 
 ```bash
-npm run audit   # a implementar
+npm run audit
 ```
 
-Saída sugerida: `storage/reports/audit-{date}.json` + opcional e-mail resumo.
+Saída em `storage/reports/audit-*.json`.
 
-Regras:
+## Testes unitários
 
-- `title` matches `/^(200|Loading)/i` → fail
-- `bodyParams[].name` contains `Retrieving` → fail
-- `endpoint.responses.length === 0` → warn
+```bash
+npm run test
+```
+
+Ex.: `path-params-from-template` (ordem e dedupe de `{id}` no path).

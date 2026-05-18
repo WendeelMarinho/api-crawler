@@ -75,6 +75,11 @@ const envSchema = z.object({
     .optional()
     .transform((v) => v !== 'false'),
   NOTIFY_LOG_TAIL_LINES: z.coerce.number().int().min(5).max(200).default(40),
+  /** Save full-page HTML + PNG per doc under storage/debug-extraction/{id}/ */
+  EXTRACTION_DEBUG_ARTIFACTS: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -98,6 +103,7 @@ export interface AppConfig {
   postCrawlAutoExport: boolean;
   postCrawlReorganize: boolean;
   postCrawlAudit: boolean;
+  extractionDebugArtifacts: boolean;
 }
 
 export interface NotificationConfig {
@@ -191,5 +197,6 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     postCrawlAutoExport: e.POST_CRAWL_AUTO_EXPORT !== false,
     postCrawlReorganize: e.POST_CRAWL_REORGANIZE !== false,
     postCrawlAudit: e.POST_CRAWL_AUDIT === true,
+    extractionDebugArtifacts: e.EXTRACTION_DEBUG_ARTIFACTS === true,
   };
 }

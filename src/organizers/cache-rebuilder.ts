@@ -4,6 +4,7 @@ import { STORAGE_PATHS } from '../config/constants.js';
 import { parsePage } from '../parsers/semantic-parser.js';
 import { buildNavUrlIndex, resolveStorageLocation } from '../navigation/nav-path.js';
 import type { FlatNavItem } from '../types/navigation.js';
+import type { SemanticDocument } from '../types/document.js';
 import { JsonExporter } from '../exporters/json-exporter.js';
 import { MarkdownExporter } from '../exporters/markdown-exporter.js';
 import { urlHash } from '../utils/hash.js';
@@ -57,6 +58,7 @@ export async function rebuildFromRawHtmlCache(
 
   const jsonExporter = new JsonExporter(baseUrl);
   const mdExporter = new MarkdownExporter(baseUrl);
+  const exportedDocs: SemanticDocument[] = [];
   let rebuilt = 0;
   let skipped = 0;
   let missingUrl = 0;
@@ -111,6 +113,7 @@ export async function rebuildFromRawHtmlCache(
 
       await jsonExporter.export(updated);
       await mdExporter.export(updated);
+      exportedDocs.push(updated);
       rebuilt++;
 
       if (totalHtml > 0 && !quiet) {
@@ -120,6 +123,11 @@ export async function rebuildFromRawHtmlCache(
         });
       }
     }
+  }
+
+  if (exportedDocs.length > 0) {
+    const indexPath = await jsonExporter.exportIndex(exportedDocs);
+    logger.info(`Index updated: ${indexPath} (${exportedDocs.length} documents)`);
   }
 
   logger.info(`Rebuild complete: ${rebuilt} pages, ${missingUrl} without URL mapping`);

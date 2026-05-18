@@ -16,6 +16,8 @@ export const STORAGE_PATHS = {
   graphql: path.join(PROJECT_ROOT, 'storage/graphql'),
   screenshots: path.join(PROJECT_ROOT, 'storage/screenshots'),
   embeddings: path.join(PROJECT_ROOT, 'storage/embeddings'),
+  /** Full-page extraction debug (HTML + PNG per doc id when enabled) */
+  extractionDebug: path.join(PROJECT_ROOT, 'storage/debug-extraction'),
 } as const;
 
 export const LOG_PATH = path.join(PROJECT_ROOT, 'logs/extractor.log');

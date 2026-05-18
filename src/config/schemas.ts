@@ -44,6 +44,9 @@ export const endpointDefinitionSchema = z.object({
       language: z.string(),
       code: z.string(),
       label: z.string().optional(),
+      sourceTab: z.string().optional(),
+      snippetHash: z.string().optional(),
+      exampleType: z.enum(['schema', 'request', 'response', 'snippet', 'try-it']).optional(),
     }),
   ),
   tags: z.array(z.string()),
@@ -90,6 +93,9 @@ export const semanticDocumentSchema = z.object({
       language: z.string(),
       code: z.string(),
       label: z.string().optional(),
+      sourceTab: z.string().optional(),
+      snippetHash: z.string().optional(),
+      exampleType: z.enum(['schema', 'request', 'response', 'snippet', 'try-it']).optional(),
     }),
   ),
   codeBlocks: z.array(
@@ -97,6 +103,9 @@ export const semanticDocumentSchema = z.object({
       language: z.string(),
       code: z.string(),
       label: z.string().optional(),
+      sourceTab: z.string().optional(),
+      snippetHash: z.string().optional(),
+      exampleType: z.enum(['schema', 'request', 'response', 'snippet', 'try-it']).optional(),
     }),
   ),
   breadcrumbs: z.array(z.string()),
@@ -109,6 +118,24 @@ export const semanticDocumentSchema = z.object({
   framework: z.string().optional(),
   storageSegments: z.array(z.string()).optional(),
   extractionQuality: z.enum(['complete', 'partial', 'failed']).optional(),
+  extractionSignals: z
+    .object({
+      domExtraction: z.boolean().optional(),
+      domSourceOfTruth: z.boolean().optional(),
+      bodyParamCount: z.number().optional(),
+      headerCount: z.number().optional(),
+      responseCount: z.number().optional(),
+      tryItLanguageCount: z.number().optional(),
+      domViolations: z.array(z.string()).optional(),
+      qualityScore: z
+        .object({
+          score: z.number(),
+          grade: z.enum(['excellent', 'good', 'partial', 'poor', 'broken']),
+          breakdown: z.record(z.number()),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export const sessionMetadataSchema = z.object({

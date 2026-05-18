@@ -2,9 +2,9 @@
 
 ## O que é este projeto
 
-Extrator semântico da documentação autenticada da Dock Tech (`https://developers.dock.tech`). Usa **Playwright** + **Cheerio** para transformar páginas ReadMe em JSON/Markdown estruturados para RAG, copilots ou consulta offline.
+Extrator semântico da documentação autenticada da Dock Tech (`https://developers.dock.tech`). Usa **Playwright** (DOM hidratado em `/reference/`) + **Cheerio** (fallback / rebuild / páginas não-reference) para JSON/Markdown estruturados para RAG ou copilots.
 
-**Não é** um scraper HTML burro: há parsers de endpoint, sidebar, chunks, interceptação OpenAPI/GraphQL e export RAG.
+**Não é** um scraper HTML burro: há pipeline **DOM-first** para API Reference, asserts, score ponderado, dedupe semântico e export RAG.
 
 ## Regras importantes (usuário)
 
@@ -23,8 +23,10 @@ Crawl completo (~1071 HTML em cache) → **pipeline automático** (rebuild + reo
 npm run login          # sessão Playwright
 npm run crawl          # NÃO rodar sem OK do usuário
 npm run reorganize     # colhe sidebar + move arquivos
-npm run rebuild        # reparse raw-html → json/md (sem browser)
+npm run rebuild        # reparse raw-html → json/md (sem browser; não repete DOM-first)
 npm run export         # RAG (opcional)
+npm run audit          # relatório de qualidade
+npm run test           # unitários (tsx --test)
 npm run doctor         # diagnóstico WSL/CDP
 ```
 
@@ -35,6 +37,9 @@ npm run doctor         # diagnóstico WSL/CDP
 | Harvest sidebar | `src/navigation/nav-harvester.ts`, `nav-merge.ts`, `nav-path.ts` |
 | Reorganizar storage | `src/organizers/storage-organizer.ts` |
 | Rebuild sem crawl | `src/organizers/cache-rebuilder.ts` |
+| DOM-first ReadMe | `src/extractors/readme-dom-extractor.ts`, `readme-endpoint-from-dom.ts`, `readme-dom-assertions.ts` |
+| Dedupe / fingerprints | `src/utils/extraction-fingerprints.ts` |
+| Score ponderado | `src/quality/weighted-quality-score.ts` |
 | Paths hierárquicos | `src/utils/path-builder.ts` |
 | Filenames legíveis | `src/utils/slugify.ts` (`filenameFromUrlAndTitle` + `doc.id`) |
 

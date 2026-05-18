@@ -25,7 +25,11 @@ import { loadAllDocuments } from './loaders/document-loader.js';
 import { reorganizeStorage } from './organizers/storage-organizer.js';
 import { rebuildFromRawHtmlCache } from './organizers/cache-rebuilder.js';
 import { applyNodeMemoryProfile } from './utils/node-memory.js';
-import { runQualityAudit, formatAuditSummary } from './audit/quality-audit.js';
+import {
+  runQualityAudit,
+  formatAuditSummary,
+  checkAuditThresholds,
+} from './audit/quality-audit.js';
 import { getEmailNotifier } from './notifications/email-notifier.js';
 import { runPostCrawlPipeline } from './pipeline/post-crawl-pipeline.js';
 
@@ -142,6 +146,7 @@ program
       resume,
       discoverMode: appConfig.discoverMode,
       maxPages: appConfig.maxPages,
+      extractionDebugArtifacts: appConfig.extractionDebugArtifacts,
     };
 
     try {
@@ -205,7 +210,27 @@ program
   .command('audit')
   .description('Quality audit of extracted JSON (no crawl)')
   .option('--email', 'Send summary by email')
-  .action(async (opts: { email?: boolean }) => {
+  .option(
+    '--fail-on-threshold',
+    'Exit with code 1 if partial/failed ratio exceeds limits',
+  )
+  .option(
+    '--max-partial-ratio <ratio>',
+    'Max fraction of partial+failed (0–1, default 0.5)',
+    '0.5',
+  )
+  .option(
+    '--max-failed-ratio <ratio>',
+    'Max fraction of failed (0–1, default 0.2)',
+    '0.2',
+  )
+  .action(
+    async (opts: {
+      email?: boolean;
+      failOnThreshold?: boolean;
+      maxPartialRatio?: string;
+      maxFailedRatio?: string;
+    }) => {
     applyNodeMemoryProfile('default');
     const spinner = ora('Running quality audit...').start();
     try {
@@ -223,6 +248,15 @@ program
           },
           summary,
         );
+      }
+      if (opts.failOnThreshold) {
+        const maxPartialRatio = parseFloat(opts.maxPartialRatio ?? '0.5');
+        const maxFailedRatio = parseFloat(opts.maxFailedRatio ?? '0.2');
+        const check = checkAuditThresholds(report, { maxPartialRatio, maxFailedRatio });
+        if (!check.ok) {
+          logger.error(`Audit thresholds exceeded: ${check.reasons.join('; ')}`);
+          process.exit(1);
+        }
       }
     } catch (error) {
       spinner.fail('Audit failed');

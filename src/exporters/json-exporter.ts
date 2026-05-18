@@ -13,6 +13,7 @@ export class JsonExporter {
       title: doc.title,
       domain: doc.domain,
       subcategory: doc.subcategory,
+      storageSegments: doc.storageSegments,
       type: doc.type,
       url: doc.url,
       content: doc.content,
@@ -31,6 +32,7 @@ export class JsonExporter {
       version: doc.version,
       authRequired: doc.authRequired,
       extractionQuality: doc.extractionQuality,
+      extractionSignals: doc.extractionSignals,
     };
 
     const filename = filenameFromDocument(doc, this.baseUrl).replace('.md', '.json');

@@ -13,6 +13,12 @@ export interface EndpointExample {
   language: string;
   code: string;
   label?: string;
+  /** ReadMe Try It tab label when captured via tab cycling */
+  sourceTab?: string;
+  /** First 16 hex chars of sha256(UTF-8 code) for dedupe / debug */
+  snippetHash?: string;
+  /** Classification aligned with `CodeBlock.exampleType` */
+  exampleType?: 'schema' | 'request' | 'response' | 'snippet' | 'try-it';
 }
 
 export interface EndpointResponse {

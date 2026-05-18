@@ -8,6 +8,7 @@ import {
   discoverLinksFromHtml,
   discoverLinksFromNav,
   discoverNavLinksFromHtml,
+  discoverUncrawledNavUrls,
   shouldCrawlUrl,
   type CrawlDiscoverMode,
 } from './discovery.js';
@@ -33,10 +34,20 @@ import { STORAGE_PATHS } from '../config/constants.js';
 import type { SemanticDocument } from '../types/document.js';
 import type { CrawlDocumentMeta } from '../types/crawl-meta.js';
 import type { FlatNavItem, NavigationTree } from '../types/navigation.js';
+import type { ReadmeDomSnapshot } from '../types/readme-dom.js';
 import { logger } from '../utils/logger.js';
 import { withRetry, sleep } from '../utils/retry.js';
 import { buildScreenshotPath, buildRawHtmlPath } from '../utils/path-builder.js';
 import { getEmailNotifier } from '../notifications/email-notifier.js';
+import { urlHash } from '../utils/hash.js';
+import {
+  collectTryItLanguageSamples,
+  extractReadmeDomSnapshot,
+  isDockReadmeReferencePage,
+  prepareReadmeReferencePage,
+  saveReadmeExtractionDebugArtifacts,
+} from '../extractors/readme-dom-extractor.js';
+import { computeDomExtractionAssertions } from '../extractors/readme-dom-assertions.js';
 
 export interface CrawlerConfig {
   baseUrl: string;
@@ -52,6 +63,8 @@ export interface CrawlerConfig {
   password?: string;
   discoverMode: CrawlDiscoverMode;
   maxPages: number;
+  /** Write storage/debug-extraction/{id}/ (full.html, screenshot, per-section HTML/JSON, extraction-meta) */
+  extractionDebugArtifacts?: boolean;
 }
 
 export class DockDocsCrawler {
@@ -110,8 +123,18 @@ export class DockDocsCrawler {
       if (this.config.discoverMode === 'sidebar') {
         await this.expandQueueFromDomainRoots(context, navUrls);
       }
+
+      const uncrawled = await discoverUncrawledNavUrls(this.flatNav, this.config.baseUrl);
+      if (uncrawled.length > 0) {
+        const added = this.queue.enqueueMany(uncrawled);
+        logger.info(`Enqueued ${added} URLs from navigation not yet in raw-html cache`);
+      }
     } else if (this.flatNav.length > 0) {
       this.queue.enqueueMany(discoverLinksFromNav(this.flatNav, this.config.baseUrl));
+      const uncrawled = await discoverUncrawledNavUrls(this.flatNav, this.config.baseUrl);
+      if (uncrawled.length > 0) {
+        this.queue.enqueueMany(uncrawled);
+      }
     }
 
     const initialSize = this.queue.size;
@@ -235,26 +258,30 @@ export class DockDocsCrawler {
   private async loadExistingHashes(): Promise<void> {
     if (!(await fs.pathExists(STORAGE_PATHS.json))) return;
 
-    for (const domain of await fs.readdir(STORAGE_PATHS.json)) {
-      if (domain === 'index.json') continue;
-      const domainPath = `${STORAGE_PATHS.json}/${domain}`;
-      if (!(await fs.stat(domainPath)).isDirectory()) continue;
-
-      for (const file of await fs.readdir(domainPath)) {
-        if (!file.endsWith('.json')) continue;
-        try {
-          const raw = await fs.readJson(`${domainPath}/${file}`) as {
-            contentHash?: string;
-            url?: string;
-          };
-          if (raw.contentHash) this.contentHashes.add(raw.contentHash);
-          if (raw.url) this.visitedUrls.add(raw.url.replace(/\/$/, ''));
-        } catch {
-          // skip corrupt file
+    const walk = async (dir: string): Promise<void> => {
+      for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+        const abs = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          await walk(abs);
+        } else if (entry.name.endsWith('.json') && entry.name !== 'index.json') {
+          try {
+            const raw = (await fs.readJson(abs)) as {
+              contentHash?: string;
+              url?: string;
+            };
+            if (raw.contentHash) this.contentHashes.add(raw.contentHash);
+            if (raw.url) this.visitedUrls.add(raw.url.replace(/\/$/, ''));
+          } catch {
+            // skip corrupt file
+          }
         }
       }
-    }
-    logger.info(`Resume: ${this.contentHashes.size} content hashes loaded`);
+    };
+
+    await walk(STORAGE_PATHS.json);
+    logger.info(
+      `Resume: ${this.contentHashes.size} content hashes, ${this.visitedUrls.size} URLs loaded`,
+    );
   }
 
   private async loadSavedNavigation(): Promise<void> {
@@ -375,18 +402,59 @@ export class DockDocsCrawler {
     const page = await context.newPage();
 
     try {
+      let readmeDomSnapshot: ReadmeDomSnapshot | undefined;
+
       const html = await withRetry(
         async () => {
+          const useDomPipeline = isDockReadmeReferencePage(url, this.config.baseUrl);
+          const waitUntil = useDomPipeline ? 'networkidle' : 'domcontentloaded';
+          const navTimeout = useDomPipeline
+            ? Math.min(this.config.timeoutMs, 120_000)
+            : this.config.timeoutMs;
+
           const response = await page.goto(url, {
-            waitUntil: 'domcontentloaded',
-            timeout: this.config.timeoutMs,
+            waitUntil,
+            timeout: navTimeout,
           });
 
           if (!response || response.status() >= 400) {
             throw new Error(`HTTP ${response?.status() ?? 'unknown'} for ${url}`);
           }
 
-          await page.waitForTimeout(400);
+          if (useDomPipeline) {
+            const t0 = Date.now();
+            await prepareReadmeReferencePage(page, {
+              delayMs: this.config.delayMs,
+              timeoutMs: this.config.timeoutMs,
+            });
+            const dom = await extractReadmeDomSnapshot(page);
+            dom.tryItSamples = await collectTryItLanguageSamples(page);
+            dom.domAssertionViolations = computeDomExtractionAssertions(dom);
+            const metrics = await page.evaluate(() => ({
+              referenceMainNodeCount:
+                document.querySelector('.rm-ReferenceMain')?.getElementsByTagName('*').length ?? 0,
+              tablistCount: document.querySelectorAll('.rm-ReferenceMain [role="tablist"]').length,
+            }));
+            dom.captureMeta = {
+              extractDurationMs: Date.now() - t0,
+              referenceMainNodeCount: metrics.referenceMainNodeCount,
+              tablistCount: metrics.tablistCount,
+            };
+            readmeDomSnapshot = dom;
+            await saveReadmeExtractionDebugArtifacts(
+              page,
+              urlHash(url),
+              dom,
+              this.config.extractionDebugArtifacts === true,
+            );
+          } else {
+            await this.waitForReadMeContent(page);
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight / 3)');
+            await page.waitForTimeout(800);
+            await page.evaluate('window.scrollTo(0, 0)');
+            await page.waitForTimeout(400);
+          }
+
           return page.content();
         },
         {
@@ -396,6 +464,10 @@ export class DockDocsCrawler {
         },
       );
 
+      if (readmeDomSnapshot?.captureMeta) {
+        readmeDomSnapshot.captureMeta.fullHtmlBytes = html.length;
+      }
+
       this.queue.markVisited(url);
       this.visitedUrls.add(normalized);
 
@@ -403,7 +475,13 @@ export class DockDocsCrawler {
         (n) => n.url && n.url.replace(/\/$/, '') === normalized,
       );
 
-      const doc = parsePage({ url, html, baseUrl: this.config.baseUrl, navItem });
+      const doc = parsePage({
+        url,
+        html,
+        baseUrl: this.config.baseUrl,
+        navItem,
+        readmeDom: readmeDomSnapshot,
+      });
 
       if (this.contentHashes.has(doc.contentHash)) {
         logger.debug(`Duplicate content skipped: ${url}`);
@@ -472,6 +550,33 @@ export class DockDocsCrawler {
       contentHash: m.contentHash,
       extractedAt: new Date().toISOString(),
     }));
+  }
+
+  /** Wait for ReadMe param blocks to finish lazy-loading (no placeholder text). */
+  private async waitForReadMeContent(page: import('playwright').Page): Promise<void> {
+    const settleMs = Math.min(Math.max(this.config.delayMs * 5, 2000), 5000);
+    await page.waitForTimeout(settleMs);
+
+    await page
+      .waitForFunction(
+        `() => {
+          const containers = document.querySelectorAll(
+            '.rm-ParamContainer, [class*="ParamContainer"], [data-testid*="param"]'
+          );
+          if (containers.length === 0) return true;
+          for (const el of containers) {
+            const text = (el.textContent || '').toLowerCase();
+            if (
+              text.includes('retrieving') ||
+              text.includes('loadingloading') ||
+              /\\bloading\\b/.test(text)
+            ) return false;
+          }
+          return true;
+        }`,
+        { timeout: Math.min(this.config.timeoutMs, 15_000) },
+      )
+      .catch(() => undefined);
   }
 
   private async setupInterception(context: BrowserContext): Promise<void> {

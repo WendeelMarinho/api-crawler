@@ -18,6 +18,7 @@
     "test-email": "tsx src/index.ts test-email",
     "menu": "bash scripts/dock-docs.sh",
     "clean": "tsx src/index.ts clean",
+    "test": "tsx --test src/**/*.test.ts",
     "start": "tsx src/index.ts",
     "postinstall": "playwright install chromium"
   },

@@ -17,6 +17,7 @@ storage/
 ├── openapi/                       # specs interceptadas
 ├── graphql/
 ├── embeddings/                    # saída do export RAG
+├── debug-extraction/              # opcional: debug por docId (EXTRACTION_DEBUG_ARTIFACTS=true)
 └── screenshots/                   # erros de crawl
 ```
 
@@ -51,6 +52,8 @@ Exemplo: `post-financing-simulations-cae-01bbdbabf017.json`
 ```
 
 `storageSegments` pode não estar serializado no JSON antigo; o path em disco reflete a seção.
+
+Documentos gerados após crawl com **DOM-first** incluem com frequência `extractionSignals` (ex.: `domSourceOfTruth`, `domViolations`, `qualityScore`) e `codeBlocks[].exampleType` (`try-it`, `schema`, `snippet`).
 
 ## Índice
 

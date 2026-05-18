@@ -9,9 +9,22 @@ Minerador semântico para documentação autenticada (ex.: [Dock Tech](https://d
 Não é um scraper simples. Atua como:
 
 - **Minerador semântico** — extrai título, endpoints, schemas, tabelas, exemplos
+- **Extractor DOM-first (ReadMe `/reference/`)** — Playwright expande a UI, lê o DOM hidratado (body params, headers, query, responses, Try It por aba) e monta o `endpoint` a partir da mesma superfície que o humano vê
 - **Extractor arquitetural** — mapeia domínios, dependências e relações
 - **Parser de domínio** — organiza saída pela hierarquia da sidebar
 - **Construtor de knowledge graph** — gera `architecture-map.json`
+
+### O JSON dos endpoints fica “completo”?
+
+Para páginas **API Reference** da Dock (`…/reference/…`) **após um crawl novo** com esta versão:
+
+- O objeto `endpoint` tende a incluir **`method`**, **`path`**, **`pathParams`** (derivados do path `{id}`), **`bodyParams`**, **`headers`**, **`queryParams`**, **`responses`** e **`examples`** (snippets Try It), além de **`extractionSignals`** (contagens, `domSourceOfTruth`, violações de assert opcionais e **`qualityScore`** ponderado).
+
+Limitações honestas: páginas não padronizadas, lazy load que falhou, mudança de layout na Dock ou conteúdo só em PDF/outro host podem ainda deixar campos vazios — use `extractionQuality`, `extractionSignals.domViolations` e `qualityScore` para filtrar ou re-crawlear.
+
+### Outras IAs conseguem codar “sem erros”?
+
+**Não há garantia automática.** O JSON melhora muito a **fidelidade à documentação visual**, mas integração real ainda exige: OAuth/tokens, ambientes (sandbox/prod), regras de negócio, idempotência, paginação e validação do próprio time. Trate o JSON como **fonte primária da doc**, não como contrato executável testado em runtime.
 
 ## Stack
 
@@ -24,7 +37,7 @@ Documentação: **[docs/](./docs/)** — geral: [00-START-HERE.md](./docs/00-STA
 ## Instalação
 
 ```bash
-cd dock-docs-extractor
+cd api-crawler
 cp .env.example .env
 npm install
 npm run build
@@ -43,6 +56,8 @@ npm run build
 | `CRAWL_HEADLESS` | Browser headless | `true` |
 | `CRAWL_RESUME` | Retomar fila salva | `false` |
 | `MANUAL_LOGIN_TIMEOUT_SEC` | Timeout login manual | `300` |
+| `EXTRACTION_DEBUG_ARTIFACTS` | Por página reference: `storage/debug-extraction/{id}/` (HTML, screenshot, JSON por seção, `extraction-meta.json`) | `false` |
+| `POST_CRAWL_*` / `NOTIFY_*` | Ver `.env.example` | — |
 
 ## Comandos
 
@@ -66,9 +81,12 @@ npm run export -- --target qdrant
 
 # 4. Reorganizar / reconstruir (sem recrawl)
 npm run reorganize              # colhe sidebar e reorganiza pastas
-npm run rebuild                 # reparse storage/raw-html → json/md
+npm run rebuild                 # reparse storage/raw-html → json/md (sem Playwright; endpoint rich veio do último crawl)
 
-# 5. Limpar dados extraídos
+# 5. Testes (unitários)
+npm run test
+
+# 6. Limpar dados extraídos
 npm run clean
 npm run clean -- --keep-auth
 ```
@@ -80,7 +98,8 @@ login → session.json
          ↓
 crawl → sidebar → navigation-tree.json
      → fila URLs → Playwright + interceptação APIs
-     → extractors → semantic parser → markdown + json + chunks
+     → páginas /reference/: DOM-first (expand UI, tabs Try It, snapshot semântico)
+     → parsePage → markdown + json + chunks (+ extractionSignals / qualityScore)
      → architecture-map.json
          ↓
 export → embeddings/ (ChromaDB / Qdrant / JSONL)
@@ -102,6 +121,7 @@ storage/
 ├── openapi/                      # specs interceptadas
 ├── graphql/
 ├── embeddings/                   # payloads RAG
+├── debug-extraction/             # opcional: artefatos por docId (EXTRACTION_DEBUG_ARTIFACTS=true)
 └── screenshots/                  # erros de crawl
 ```
 
@@ -139,11 +159,42 @@ ReadMe · Docusaurus · Mintlify · Redoc · Swagger UI · Stoplight · GitBook
 
 O portal Dock (`developers.dock.tech`) usa **ReadMe** — seletores `.rm-Sidebar` e `.rm-Article` são priorizados.
 
+## Deploy VPS (Ubuntu headless, 32 GB)
+
+Fluxo após `git clone` na VPS — a IA ou você segue [docs/VPS-AI-PLAYBOOK.md](./docs/VPS-AI-PLAYBOOK.md):
+
+```bash
+git clone git@github.com:WendeelMarinho/api-crawler.git
+cd api-crawler
+
+# Setup automatizado ( .env + build + login + test-email )
+./scripts/vps-setup.sh
+
+# Verificar sessão, storage e SMTP
+./scripts/healthcheck.sh
+
+# Se copiou storage/ da máquina de desenvolvimento:
+docker compose run --rm rebuild
+docker compose run --rm audit
+
+# Crawl completo — somente com autorização explícita:
+docker compose run --rm crawl
+```
+
+Cron sugerido (rebuild semanal, sem browser):
+
+```cron
+# /etc/cron.d/api-crawler
+0 4 * * 0 root cd /opt/api-crawler && docker compose run --rm rebuild >> /var/log/api-crawler.log 2>&1
+```
+
 ## Docker
 
 ```bash
 docker compose run --rm login
-docker compose up dock-docs-extractor
+docker compose run --rm rebuild
+docker compose run --rm audit
+docker compose up app
 ```
 
 Volumes `storage/` e `logs/` são persistidos.
@@ -197,12 +248,13 @@ A sessão é salva em `storage/auth/session.json` e o `npm run crawl` funciona e
 ```
 src/
 ├── auth/          # login, sessão Playwright
-├── crawler/       # fila, discovery, interceptação
-├── extractors/    # HTML, sidebar, endpoints, OpenAPI, GraphQL
-├── parsers/       # semântica, domínios, chunks, hierarquia
+├── crawler/       # fila, discovery, interceptação; pipeline DOM-first em /reference/
+├── extractors/    # HTML, sidebar, endpoints, OpenAPI, GraphQL, readme-dom-* (snapshot vivo)
+├── parsers/       # semântica, domínios, chunks, hierarquia (parsePage: merge DOM-first)
 ├── exporters/     # markdown, JSON, RAG, navegação
-├── config/        # env (Zod), seletores, schemas
-└── utils/         # logger, retry, hash, paths
+├── quality/       # enrich, asserts, weighted quality score
+├── config/        # env (Zod), schemas
+└── utils/         # logger, retry, hash, paths, fingerprints de dedupe
 ```
 
 ## Licença

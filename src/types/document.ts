@@ -10,12 +10,20 @@ export type DocumentType =
   | 'overview'
   | 'reference'
   | 'changelog'
+  | 'webhook'
+  | 'auth'
   | 'unknown';
+
+export type CodeExampleType = 'schema' | 'request' | 'response' | 'snippet' | 'try-it';
 
 export interface CodeBlock {
   language: string;
   code: string;
   label?: string;
+  sourceTab?: string;
+  snippetHash?: string;
+  /** Semantic classification for RAG / audits */
+  exampleType?: CodeExampleType;
 }
 
 export interface TableData {
@@ -55,6 +63,23 @@ export interface SemanticDocument {
   extractedAt: string;
   framework?: DocFramework;
   extractionQuality?: ExtractionQuality;
+  /** Metrics from Playwright DOM extraction (ReadMe reference). */
+  extractionSignals?: {
+    domExtraction?: boolean;
+    /** Endpoint fields taken only from Playwright DOM (no Cheerio endpoint merge). */
+    domSourceOfTruth?: boolean;
+    bodyParamCount?: number;
+    headerCount?: number;
+    responseCount?: number;
+    tryItLanguageCount?: number;
+    /** `computeDomExtractionAssertions` violations (e.g. section visible but empty). */
+    domViolations?: string[];
+    qualityScore?: {
+      score: number;
+      grade: 'excellent' | 'good' | 'partial' | 'poor' | 'broken';
+      breakdown: Record<string, number>;
+    };
+  };
 }
 
 export interface SemanticChunk {

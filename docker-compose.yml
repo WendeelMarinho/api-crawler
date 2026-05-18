@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     build:
@@ -17,7 +15,8 @@ services:
     stdin_open: true
     tty: true
     shm_size: "4gb"
-    command: ["bash", "scripts/dock-docs.sh"]
+    entrypoint: ["/bin/bash"]
+    command: ["scripts/dock-docs.sh"]
     deploy:
       resources:
         limits:
@@ -37,7 +36,7 @@ services:
       - NODE_ENV=production
       - CRAWL_HEADLESS=true
       - NODE_MAX_OLD_SPACE_CRAWL=16384
-    command: ["node", "dist/index.js", "crawl"]
+    command: ["crawl"]
     shm_size: "4gb"
     deploy:
       resources:
@@ -56,11 +55,7 @@ services:
       - ./logs:/app/logs
     environment:
       - NODE_MAX_OLD_SPACE_REBUILD=8192
-    command: ["node", "dist/index.js", "rebuild"]
-    deploy:
-      resources:
-        limits:
-          memory: 12G
+    command: ["rebuild"]
 
   login:
     build:
@@ -75,5 +70,32 @@ services:
     environment:
       - NODE_ENV=production
       - CRAWL_HEADLESS=true
-    command: ["node", "dist/index.js", "login"]
+    command: ["login"]
     shm_size: "2gb"
+
+  audit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dock-docs-audit
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    command: ["audit"]
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  test-email:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    command: ["test-email"]

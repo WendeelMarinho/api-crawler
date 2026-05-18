@@ -48,12 +48,28 @@ export async function performLogin(config: LoginConfig): Promise<object> {
     logger.info(`Navigating to ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
+    await page
+      .waitForURL(/dash\.readme\.com|developers\.dock\.tech/i, { timeout: 45_000 })
+      .catch(() => undefined);
+    await page.waitForTimeout(1500);
+
     const alreadyLoggedIn = await detectLoggedIn(page);
     if (alreadyLoggedIn) {
       logger.info('Already authenticated — saving session');
     } else {
-      const loggedIn = await attemptAutomatedLogin(page, config);
+      let loggedIn = false;
+      if (/dash\.readme\.com/i.test(page.url())) {
+        loggedIn = await attemptReadmeDashLogin(page, config);
+      } else {
+        loggedIn = await attemptAutomatedLogin(page, config);
+      }
       if (!loggedIn) {
+        if (config.headless && !useCdp && config.username && config.password) {
+          await saveLoginDebugScreenshot(page);
+          throw new Error(
+            'Login automático falhou. ReadMe pode exigir "Log in with Password" — verifique DOCK_USERNAME/DOCK_PASSWORD no .env',
+          );
+        }
         if (config.headless || useCdp) {
           if (useCdp) {
             logger.info('Complete login in the Chrome window connected via CDP');
@@ -117,8 +133,56 @@ async function detectLoggedIn(page: Page): Promise<boolean> {
     .catch(() => false);
 }
 
+/** ReadMe dash (dash.readme.com) defaults to magic-link; use password mode on VPS. */
+async function attemptReadmeDashLogin(page: Page, config: LoginConfig): Promise<boolean> {
+  if (!config.username || !config.password) return false;
+
+  if (!/dash\.readme\.com/i.test(page.url())) {
+    await page.waitForURL(/dash\.readme\.com/i, { timeout: 30_000 }).catch(() => undefined);
+  }
+  if (!/dash\.readme\.com/i.test(page.url())) return false;
+
+  try {
+    await page.waitForSelector('#email, input[name="email"]', { timeout: 20_000 });
+
+    const passwordMode = page.getByText(/log in with password/i);
+    await passwordMode.click({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+
+    const emailField = page.locator('#email, input[name="email"], input[type="email"]').first();
+    await emailField.waitFor({ state: 'visible', timeout: 15_000 });
+    await emailField.fill(config.username);
+
+    const passwordField = page.locator('input[type="password"]').first();
+    await passwordField.waitFor({ state: 'visible', timeout: 15_000 });
+    await passwordField.fill(config.password);
+
+    const submit = page.locator('button[type="submit"]').first();
+    await submit.click();
+
+    await page
+      .waitForURL(/developers\.dock\.tech/i, { timeout: 60_000 })
+      .catch(() => undefined);
+    await page.waitForLoadState('domcontentloaded').catch(() => undefined);
+
+    if (await detectLoggedIn(page)) {
+      logger.info('ReadMe password login succeeded');
+      return true;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(`ReadMe dash login failed: ${msg}`);
+  }
+
+  return false;
+}
+
 async function attemptAutomatedLogin(page: Page, config: LoginConfig): Promise<boolean> {
   if (!config.username || !config.password) {
+    return false;
+  }
+
+  if (/dash\.readme\.com/i.test(page.url())) {
     return false;
   }
 
@@ -173,6 +237,19 @@ async function attemptAutomatedLogin(page: Page, config: LoginConfig): Promise<b
   }
 
   return false;
+}
+
+async function saveLoginDebugScreenshot(page: Page): Promise<void> {
+  try {
+    const { STORAGE_PATHS } = await import('../config/constants.js');
+    const fs = await import('fs-extra');
+    await fs.ensureDir(STORAGE_PATHS.screenshots);
+    const path = `${STORAGE_PATHS.screenshots}/login-failed-${Date.now()}.png`;
+    await page.screenshot({ path, fullPage: true });
+    logger.info(`Login debug screenshot: ${path}`);
+  } catch {
+    // non-fatal
+  }
 }
 
 async function waitForManualLogin(page: Page, config: LoginConfig): Promise<void> {

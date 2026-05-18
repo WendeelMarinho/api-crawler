@@ -24,7 +24,7 @@ export function extractCodeBlocks(html: string): CodeBlock[] {
       $el.closest('[class*="example"]').find('h3, h4').first().text().trim() ||
       undefined;
 
-    blocks.push({ language, code, label: label || undefined });
+    blocks.push({ language, code, label: label || undefined, exampleType: 'snippet' });
   });
 
   return blocks;

@@ -137,5 +137,6 @@ export function schemasToCodeBlocks(schemas: ExtractedSchema[]): CodeBlock[] {
     language: 'json',
     code: s.raw,
     label: s.name,
+    exampleType: 'schema' as const,
   }));
 }

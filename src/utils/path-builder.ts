@@ -48,6 +48,11 @@ export function buildScreenshotPath(url: string): string {
   return path.join(STORAGE_PATHS.screenshots, `err-${id}-${Date.now()}.png`);
 }
 
+export function buildExtractionDebugDir(docId: string): string {
+  const safe = docId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || urlHash(docId);
+  return path.join(STORAGE_PATHS.extractionDebug, safe);
+}
+
 export function relativeStoragePath(absolutePath: string): string {
   return path.relative(STORAGE_PATHS.markdown, absolutePath);
 }
