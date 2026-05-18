@@ -40,4 +40,4 @@ npm run doctor         # diagnóstico WSL/CDP
 
 ## Próximo trabalho (aprovado pelo usuário, não implementado ainda)
 
-Ver [ROADMAP.md](./ROADMAP.md) e [SMTP-NOTIFICATIONS-SPEC.md](./SMTP-NOTIFICATIONS-SPEC.md). Aguardar respostas às perguntas do usuário antes de codificar SMTP e melhorias de extração.
+Ver [ROADMAP.md](./ROADMAP.md). **Na VPS:** seguir [VPS-AI-PLAYBOOK.md](./VPS-AI-PLAYBOOK.md) (setup + melhorias).

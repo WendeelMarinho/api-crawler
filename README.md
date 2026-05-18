@@ -19,7 +19,7 @@ Node.js LTS · TypeScript · Playwright · Cheerio · Turndown · Zod · Winston
 
 ## Documentação interna (handoff AI)
 
-Documentação detalhada do estado do projeto, arquitetura e roadmap: **[docs/](./docs/)** — comece por [docs/00-START-HERE.md](./docs/00-START-HERE.md).
+Documentação: **[docs/](./docs/)** — geral: [00-START-HERE.md](./docs/00-START-HERE.md) · **VPS (IA):** [VPS-AI-PLAYBOOK.md](./docs/VPS-AI-PLAYBOOK.md).
 
 ## Instalação
 
